@@ -73,7 +73,6 @@ interface PuterStore {
       options?: PuterChatOptions,
     ) => Promise<AIResponse | undefined>;
     feedback: (
-      path: string,
       message: string,
     ) => Promise<AIResponse | undefined>;
     img2txt: (
@@ -327,31 +326,25 @@ export const usePuterStore = create<PuterStore>((set, get) => {
     >;
   };
 
-  const feedback = async (path: string, message: string) => {
+  const feedback = async (message: string) => {
     const puter = getPuter();
     if (!puter) {
       setError("Puter.js not available");
       return;
     }
 
-    return puter.ai.chat(
-      [
+    try {
+      return (await puter.ai.chat([
         {
           role: "user",
-          content: [
-            {
-              type: "file",
-              puter_path: path,
-            },
-            {
-              type: "text",
-              text: message,
-            },
-          ],
+          content: message,
         },
-      ],
-      { model: "claude-sonnet-4" },
-    ) as Promise<AIResponse | undefined>;
+      ])) as AIResponse | undefined;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Resume analysis failed";
+      setError(msg);
+      return undefined;
+    }
   };
 
   const img2txt = async (image: string | File | Blob, testMode?: boolean) => {
@@ -438,7 +431,7 @@ export const usePuterStore = create<PuterStore>((set, get) => {
         testMode?: boolean,
         options?: PuterChatOptions,
       ) => chat(prompt, imageURL, testMode, options),
-      feedback: (path: string, message: string) => feedback(path, message),
+      feedback: (message: string) => feedback(message),
       img2txt: (image: string | File | Blob, testMode?: boolean) =>
         img2txt(image, testMode),
     },
